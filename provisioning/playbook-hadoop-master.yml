@@ -78,6 +78,6 @@
      line="PATH=\1\2:{{hadoop_home}}/bin\3"    
 
   - name: format HDFS filesystem
-    command: "hdfs namenode -format creates=/home/hadoop/hdfs/namenode/current"
+    command: "{{hadoop_home}}/bin/hdfs namenode -format creates=/home/hadoop/hdfs/namenode/current"
     become: true
     become_user: hadoop
