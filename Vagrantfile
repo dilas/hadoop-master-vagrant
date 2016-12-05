@@ -2,21 +2,38 @@
 # vi: set ft=ruby :
 
 Vagrant.configure("2") do |config|
-  config.vm.hostname = "hadoop-master"
+
   config.vm.box = "bento/ubuntu-16.04"  
-  config.vm.network "private_network", ip: "192.168.33.10"
   config.ssh.insert_key = false
-  
-  config.vm.provider "virtualbox" do |vb|
-    vb.name = "hadoop-master"
-    vb.memory = "4096"
-    vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
-  end
-  
-  config.vm.provision "ansible" do |ansible|
-    ansible.playbook = "provisioning/playbook-hadoop-master.yml"
-    ansible.sudo = true
+
+  config.vm.define "hadoop_master" do |hadoop_master|
+    hadoop_master.vm.network "private_network", ip: "192.168.33.10"
+
+    hadoop_master.vm.provider "virtualbox" do |vb|
+      vb.name = "hadoop_master"
+      vb.memory = "4096"
+      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+    end
+
+    hadoop_master.vm.provision "ansible" do |ansible|
+      ansible.playbook = "provisioning/playbook-hadoop-master.yml"
+      ansible.sudo = true
+    end
   end
 
-  config.vm.define :hadoop_master
+  config.vm.define "hadoop_slave1" do |hadoop_slave1|
+    hadoop_slave1.vm.network "private_network", ip: "192.168.33.20"
+
+    hadoop_slave1.vm.provider "virtualbox" do |vb|
+      vb.name = "hadoop_slave1"
+      vb.memory = "4096"
+      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+    end
+
+    hadoop_slave1.vm.provision "ansible" do |ansible|
+      ansible.playbook = "provisioning/playbook-hadoop-slave.yml"
+      ansible.sudo = true
+    end
+  end
+
 end

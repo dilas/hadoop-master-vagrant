@@ -1,5 +1,5 @@
 ---
-- hosts: hadoop_master  
+- hosts: hadoop_slave1  
   gather_facts: yes
   remote_user: root
   
@@ -10,7 +10,7 @@
   tasks:
   
   - name: Generate /etc/hosts file
-    template: src=hadoop-master/hosts.j2 dest=/etc/hosts
+    template: src=hadoop-slave/hosts.j2 dest=/etc/hosts
 
   - name: update apt cache
     apt: update_cache=yes cache_valid_time=3600
@@ -65,12 +65,6 @@
     with_fileglob:
       - hadoop-conf/*
 
-  - name: create HDFS storage directories
-    file: path=/home/hadoop/hdfs/{{item}} state=directory owner=hadoop group=hadoop
-    with_items:
-      - namenode
-      - datanode
-
   - name: add JAVA_HOME environment variable globally
     lineinfile: dest=/etc/environment state=present insertbefore=BOF regexp='^JAVA_HOME' line='JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64'
     
@@ -91,9 +85,4 @@
      state=present
      backrefs=yes
      regexp='PATH=(["]*)((?!.*?{{hadoop_home}}/sbin).*?)(["]*)$'
-     line="PATH=\1\2:{{hadoop_home}}/sbin\3"    
-
-  - name: format HDFS filesystem
-    command: "{{hadoop_home}}/bin/hdfs namenode -format creates=/home/hadoop/hdfs/namenode/current"
-    become: true
-    become_user: hadoop
+     line="PATH=\1\2:{{hadoop_home}}/sbin\3"
