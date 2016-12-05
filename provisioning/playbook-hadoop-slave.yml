@@ -8,6 +8,9 @@
     hadoop_home: /opt/hadoop
   
   tasks:
+
+  - name: change machine hostname
+    hostname: name=hadoop-slave1
   
   - name: Generate /etc/hosts file
     template: src=hadoop-slave/hosts.j2 dest=/etc/hosts
@@ -22,7 +25,7 @@
     group: name=hadoop state=present
 
   - name: create hadoop user
-    user: name=hadoop group=hadoop shell=/bin/bash state=present
+    user: name=hadoop password={{'hadoop' | password_hash('sha512', 'salt')}} group=hadoop shell=/bin/bash state=present
 
   - name: create install directory cache
     file: path={{install_directory_cache}} state=directory
