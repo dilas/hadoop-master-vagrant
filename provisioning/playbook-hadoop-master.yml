@@ -1,0 +1,83 @@
+---
+- hosts: hadoop_master  
+  gather_facts: yes
+  remote_user: root
+  
+  vars:
+    install_directory_cache: /home/vagrant/install
+    hadoop_home: /opt/hadoop
+  
+  tasks:
+  
+  - name: update apt cache
+    apt: update_cache=yes cache_valid_time=3600
+  
+  - name: install default jdk
+    apt: name=default-jdk state=present
+
+  - name: create hadoop group
+    group: name=hadoop state=present
+
+  - name: create hadoop user
+    user: name=hadoop group=hadoop shell=/bin/bash state=present
+
+  - name: create install directory cache
+    file: path={{install_directory_cache}} state=directory
+
+  - name: download hadoop release
+    get_url:
+      url: http://www-us.apache.org/dist/hadoop/common/hadoop-2.6.5/hadoop-2.6.5.tar.gz
+      dest: "{{install_directory_cache}}/hadoop-2.6.5.tar.gz"
+      checksum: sha256:001ad18d4b6d0fe542b15ddadba2d092bc97df1c4d2d797381c8d12887691898
+                       
+  - name: extract hadoop
+    unarchive:
+      src: "{{install_directory_cache}}/hadoop-2.6.5.tar.gz"
+      dest: /opt
+      remote_src: yes
+      owner: hadoop
+      group: hadoop
+      creates: /opt/hadoop-2.6.5
+
+  - name: symlink hadoop install directory
+    file: src=/opt/hadoop-2.6.5 path={{hadoop_home}} state=link
+  
+  - name: create .ssh directory
+    file: path=/home/hadoop/.ssh state=directory mode=0700 owner=hadoop group=hadoop
+
+  - name: copy hadoop ssh config and keys
+    copy: src={{item.src}} dest={{item.dst}} mode={{item.mode}} owner=hadoop group=hadoop
+    with_items:
+      - { src: 'hadoop-ssh-config/id_rsa', dst: '/home/hadoop/.ssh/id_rsa', mode: '0600' }
+      - { src: 'hadoop-ssh-config/id_rsa.pub', dst: '/home/hadoop/.ssh/id_rsa.pub', mode: '0644' }
+      - { src: 'hadoop-ssh-config/ssh_config', dst: '/home/hadoop/.ssh/config', mode: '0600' }
+
+  - name: copy hadoop config files
+    copy: src={{item}} dest="{{hadoop_home}}/etc/hadoop" owner=hadoop group=hadoop mode=0664
+    with_fileglob:
+      - hadoop-master/hadoop-conf/*
+
+  - name: create HDFS storage directories
+    file: path=/home/hadoop/hdfs/{{item}} state=directory owner=hadoop group=hadoop
+    with_items:
+      - namenode
+      - datanode
+
+  - name: add JAVA_HOME environment variable globally
+    lineinfile: dest=/etc/environment state=present insertbefore=BOF regexp='^JAVA_HOME' line='JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64'
+    
+  - name: add HADOOP_HOME environment variable globally
+    lineinfile: dest=/etc/environment state=present insertafter='^JAVA_HOME' regexp='^HADOOP_HOME' line='HADOOP_HOME={{hadoop_home}}'
+
+  - name: add HADOOP_HOME/bin into PATH environment variable globally
+    lineinfile: >
+     dest=/etc/environment
+     state=present
+     backrefs=yes
+     regexp='PATH=(["]*)((?!.*?{{hadoop_home}}/bin).*?)(["]*)$'
+     line="PATH=\1\2:{{hadoop_home}}/bin\3"    
+
+  - name: format HDFS filesystem
+    command: "hdfs namenode -format creates=/home/hadoop/hdfs/namenode/current"
+    become: true
+    become_user: hadoop
