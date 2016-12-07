@@ -1,5 +1,5 @@
 ---
-- hosts: hadoop_slave1  
+- hosts: hadoop-slave1  
   gather_facts: yes
   remote_user: root
   
@@ -17,10 +17,13 @@
 
   - name: update apt cache
     apt: update_cache=yes cache_valid_time=3600
-  
-  - name: install default jdk
-    apt: name=default-jdk state=present
 
+  - name: install required packages
+    apt: name={{item}} state=present
+    with_items:
+      - default-jdk
+      - zip
+  
   - name: create hadoop group
     group: name=hadoop state=present
 
@@ -67,6 +70,12 @@
     copy: src={{item}} dest="{{hadoop_home}}/etc/hadoop" owner=hadoop group=hadoop mode=0664
     with_fileglob:
       - hadoop-conf/*
+
+  - name: create HDFS storage directories
+    file: path=/home/hadoop/hdfs/{{item}} state=directory owner=hadoop group=hadoop
+    with_items:
+      - namenode
+      - datanode
 
   - name: add JAVA_HOME environment variable globally
     lineinfile: dest=/etc/environment state=present insertbefore=BOF regexp='^JAVA_HOME' line='JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64'

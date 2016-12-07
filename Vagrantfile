@@ -6,11 +6,15 @@ Vagrant.configure("2") do |config|
   config.vm.box = "bento/ubuntu-16.04"  
   config.ssh.insert_key = false
 
-  config.vm.define "hadoop_master" do |hadoop_master|
+  config.hostmanager.enabled = true
+  config.hostmanager.manage_host = true
+  config.hostmanager.manage_guest = false
+
+  config.vm.define "hadoop-master" do |hadoop_master|
     hadoop_master.vm.network "private_network", ip: "192.168.33.10"
 
     hadoop_master.vm.provider "virtualbox" do |vb|
-      vb.name = "hadoop_master"
+      vb.name = "hadoop-master"
       vb.memory = "4096"
       vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
     end
@@ -21,11 +25,11 @@ Vagrant.configure("2") do |config|
     end
   end
 
-  config.vm.define "hadoop_slave1" do |hadoop_slave1|
+  config.vm.define "hadoop-slave1" do |hadoop_slave1|
     hadoop_slave1.vm.network "private_network", ip: "192.168.33.20"
 
     hadoop_slave1.vm.provider "virtualbox" do |vb|
-      vb.name = "hadoop_slave1"
+      vb.name = "hadoop-slave1"
       vb.memory = "4096"
       vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
     end

@@ -1,11 +1,12 @@
 ---
-- hosts: hadoop_master  
+- hosts: hadoop-master  
   gather_facts: yes
   remote_user: root
   
   vars:
     install_directory_cache: /home/vagrant/install
     hadoop_home: /opt/hadoop
+    spark_home: /opt/spark
   
   tasks:
   
@@ -17,10 +18,13 @@
 
   - name: update apt cache
     apt: update_cache=yes cache_valid_time=3600
-  
-  - name: install default jdk
-    apt: name=default-jdk state=present
 
+  - name: install required packages
+    apt: name={{item}} state=present
+    with_items:
+      - default-jdk
+      - zip
+  
   - name: create hadoop group
     group: name=hadoop state=present
 
@@ -30,13 +34,13 @@
   - name: create install directory cache
     file: path={{install_directory_cache}} state=directory
 
-  - name: download hadoop release
+  - name: download apache hadoop release
     get_url:
       url: http://www-us.apache.org/dist/hadoop/common/hadoop-2.6.5/hadoop-2.6.5.tar.gz
       dest: "{{install_directory_cache}}/hadoop-2.6.5.tar.gz"
       checksum: sha256:001ad18d4b6d0fe542b15ddadba2d092bc97df1c4d2d797381c8d12887691898
                        
-  - name: extract hadoop
+  - name: extract apache hadoop
     unarchive:
       src: "{{install_directory_cache}}/hadoop-2.6.5.tar.gz"
       dest: /opt
@@ -80,6 +84,9 @@
   - name: add HADOOP_HOME environment variable globally
     lineinfile: dest=/etc/environment state=present insertafter='^JAVA_HOME' regexp='^HADOOP_HOME' line='HADOOP_HOME={{hadoop_home}}'
 
+  - name: add HADOOP_CONF_DIR environment variable globally
+    lineinfile: dest=/etc/environment state=present insertafter='^HADOOP_HOME' regexp='^HADOOP_CONF_DIR' line='HADOOP_CONF_DIR={{hadoop_home}}/etc/hadoop'
+
   - name: add HADOOP_HOME/bin into PATH environment variable globally
     lineinfile: >
      dest=/etc/environment
@@ -100,3 +107,35 @@
     command: "{{hadoop_home}}/bin/hdfs namenode -format creates=/home/hadoop/hdfs/namenode/current"
     become: true
     become_user: hadoop
+
+  - name: download apache spark release
+    get_url:
+      url: http://d3kbcqa49mib13.cloudfront.net/spark-2.0.2-bin-hadoop2.6.tgz
+      dest: "{{install_directory_cache}}/spark-2.0.2-bin-hadoop2.6.tgz"
+      checksum: md5:ec5cc551d93b455c1f3da878dcc26330
+
+  - name: extract apache hadoop
+    unarchive:
+      src: "{{install_directory_cache}}/spark-2.0.2-bin-hadoop2.6.tgz"
+      dest: /opt
+      remote_src: yes
+      owner: hadoop
+      group: hadoop
+      creates: /opt/spark-2.0.2-bin-hadoop2.6
+
+  - name: symlink spark install directory
+    file: src=/opt/spark-2.0.2-bin-hadoop2.6 path={{spark_home}} state=link
+
+  - name: add SPARK_HOME environment variable globally
+    lineinfile: dest=/etc/environment state=present insertafter='^HADOOP_CONF_DIR' regexp='^SPARK_HOME' line='SPARK_HOME={{spark_home}}'
+    
+  - name: add SPARK_HOME/bin into PATH environment variable globally
+    lineinfile: >
+     dest=/etc/environment
+     state=present
+     backrefs=yes
+     regexp='PATH=(["]*)((?!.*?{{spark_home}}/bin).*?)(["]*)$'
+     line="PATH=\1\2:{{spark_home}}/bin\3"    
+
+  - name: install sbt build tool
+    apt: deb=https://dl.bintray.com/sbt/debian/sbt-0.13.13.deb state=present
