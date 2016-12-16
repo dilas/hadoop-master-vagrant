@@ -7,6 +7,8 @@
     install_directory_cache: /home/vagrant/install
     hadoop_home: /opt/hadoop
     spark_home: /opt/spark
+    hbase_home: /opt/hbase
+    phoenix_home: /opt/phoenix
   
   tasks:
   
@@ -139,3 +141,72 @@
 
   - name: install sbt build tool
     apt: deb=https://dl.bintray.com/sbt/debian/sbt-0.13.13.deb state=present
+
+  - name: download apache hbase release
+    get_url:
+      url: http://www-us.apache.org/dist/hbase/stable/hbase-1.2.4-bin.tar.gz
+      dest: "{{install_directory_cache}}/hbase-1.2.4-bin.tar.gz"
+      checksum: md5:26cf30b9fc01167ba98fc637e8606d5c
+                       
+  - name: extract apache hbase
+    unarchive:
+      src: "{{install_directory_cache}}/hbase-1.2.4-bin.tar.gz"
+      dest: /opt
+      remote_src: yes
+      owner: hadoop
+      group: hadoop
+      creates: /opt/hbase-1.2.4
+
+  - name: fixing file permission on hbase
+    file: dest=/opt/hbase-1.2.4 owner=hadoop group=hadoop recurse=yes
+
+  - name: symlink hbase install directory
+    file: src=/opt/hbase-1.2.4 path={{hbase_home}} state=link
+
+  - name: copy hbase config files
+    copy: src={{item}} dest="{{hbase_home}}/conf" owner=hadoop group=hadoop mode=0664
+    with_fileglob:
+      - hbase-conf/*
+
+  - name: add HBASE_HOME environment variable globally
+    lineinfile: dest=/etc/environment state=present insertafter='^SPARK_HOME' regexp='^HBASE_HOME' line='HBASE_HOME={{hbase_home}}'
+    
+  - name: add HBASE_HOME/bin into PATH environment variable globally
+    lineinfile: >
+     dest=/etc/environment
+     state=present
+     backrefs=yes
+     regexp='PATH=(["]*)((?!.*?{{hbase_home}}/bin).*?)(["]*)$'
+     line="PATH=\1\2:{{hbase_home}}/bin\3"    
+
+  - name: download apache phoenix release
+    get_url:
+      url: http://www-us.apache.org/dist/phoenix/apache-phoenix-4.8.2-HBase-1.2/bin/apache-phoenix-4.8.2-HBase-1.2-bin.tar.gz
+      dest: "{{install_directory_cache}}/apache-phoenix-4.8.2-HBase-1.2-bin.tar.gz"
+      checksum: md5:ae3395f4f7a7336b65d33e26cb07de7f
+
+  - name: extract apache phoenix
+    unarchive:
+      src: "{{install_directory_cache}}/apache-phoenix-4.8.2-HBase-1.2-bin.tar.gz"
+      dest: /opt
+      remote_src: yes
+      owner: hadoop
+      group: hadoop
+      creates: /opt/apache-phoenix-4.8.2-HBase-1.2-bin
+
+  - name: symlink phoenix install directory
+    file: src=/opt/apache-phoenix-4.8.2-HBase-1.2-bin path={{phoenix_home}} state=link
+
+  - name: add PHOENIX_HOME environment variable globally
+    lineinfile: dest=/etc/environment state=present insertafter='^HBASE_HOME' regexp='^PHOENIX_HOME' line='PHOENIX_HOME={{phoenix_home}}'
+    
+  - name: add PHOENIX_HOME/bin into PATH environment variable globally
+    lineinfile: >
+     dest=/etc/environment
+     state=present
+     backrefs=yes
+     regexp='PATH=(["]*)((?!.*?{{phoenix_home}}/bin).*?)(["]*)$'
+     line="PATH=\1\2:{{phoenix_home}}/bin\3"
+
+  - name: copy phoenix jar to HBASE_HOME/lib
+    copy: src="{{phoenix_home}}/phoenix-4.8.2-HBase-1.2-server.jar" dest="{{hbase_home}}/lib" remote_src=yes owner=hadoop group=hadoop mode=0664
